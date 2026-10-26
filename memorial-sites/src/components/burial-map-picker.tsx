@@ -1,10 +1,14 @@
 import { useEffect, useRef } from 'react'
-import type * as LeafletTypes from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 
-import { addBaseTileLayer } from '@/lib/map-tiles'
+const DEFAULT_CENTER: [number, number] = [37.6173, 55.7558] // Москва, [lng, lat]
 
-const DEFAULT_CENTER: [number, number] = [55.7558, 37.6173] // Moscow
+// Публичный (не секретный) клиентский токен Mapbox — тот же уровень
+// доверия, что и у publishable-ключа Stripe.
+const MAPBOX_TOKEN = (import.meta as any).env?.VITE_MAPBOX_TOKEN as
+  | string
+  | undefined
 
 export type BurialMapHandle = {
   locate: () => void
@@ -22,90 +26,87 @@ export function BurialMapPicker({
   mapHandleRef?: React.MutableRefObject<BurialMapHandle | null>
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<LeafletTypes.Map | null>(null)
-  const markerRef = useRef<LeafletTypes.Marker | null>(null)
+  const mapRef = useRef<mapboxgl.Map | null>(null)
+  const markerRef = useRef<mapboxgl.Marker | null>(null)
+  // onChange даётся заново при каждом рендере — держим актуальную ссылку,
+  // чтобы не пересоздавать карту и обработчик клика из-за неё.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
-    let cancelled = false
+    if (!containerRef.current || mapRef.current || !MAPBOX_TOKEN) return
 
-    void (async () => {
-      const L = (await import('leaflet')).default
-      const markerIcon2x = (await import('leaflet/dist/images/marker-icon-2x.png')).default
-      const markerIcon = (await import('leaflet/dist/images/marker-icon.png')).default
-      const markerShadow = (await import('leaflet/dist/images/marker-shadow.png')).default
+    mapboxgl.accessToken = MAPBOX_TOKEN
 
-      if (cancelled || !containerRef.current || mapRef.current) return
+    const center: [number, number] =
+      lat !== undefined && lng !== undefined ? [lng, lat] : DEFAULT_CENTER
 
-      const defaultIcon = L.icon({
-        iconUrl: markerIcon,
-        iconRetinaUrl: markerIcon2x,
-        shadowUrl: markerShadow,
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-      })
+    const map = new mapboxgl.Map({
+      container: containerRef.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center,
+      zoom: lat !== undefined ? 15 : 4,
+      attributionControl: false,
+    })
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }))
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
 
-      const center: [number, number] =
-        lat !== undefined && lng !== undefined ? [lat, lng] : DEFAULT_CENTER
-
-      const map = L.map(containerRef.current).setView(
-        center,
-        lat !== undefined ? 15 : 4,
-      )
-      // Единая логика выбора тайлов: Mapbox, если задан VITE_MAPBOX_TOKEN,
-      // иначе запасной вариант — OpenStreetMap. Также убирает префикс
-      // атрибуции Leaflet, оставляя только обязательную атрибуцию данных.
-      addBaseTileLayer(L, map)
-
-      if (lat !== undefined && lng !== undefined) {
-        markerRef.current = L.marker([lat, lng], { icon: defaultIcon }).addTo(map)
+    function placeMarker(markerLng: number, markerLat: number) {
+      if (markerRef.current) {
+        markerRef.current.setLngLat([markerLng, markerLat])
+      } else {
+        markerRef.current = new mapboxgl.Marker({ draggable: true })
+          .setLngLat([markerLng, markerLat])
+          .addTo(map)
+        markerRef.current.on('dragend', () => {
+          const pos = markerRef.current!.getLngLat()
+          onChangeRef.current(pos.lat, pos.lng)
+        })
       }
+    }
 
-      map.on('click', (e: LeafletTypes.LeafletMouseEvent) => {
-        const { lat: clickedLat, lng: clickedLng } = e.latlng
-        if (markerRef.current) {
-          markerRef.current.setLatLng([clickedLat, clickedLng])
-        } else {
-          markerRef.current = L.marker([clickedLat, clickedLng], {
-            icon: defaultIcon,
-          }).addTo(map)
-        }
-        onChange(clickedLat, clickedLng)
-      })
+    if (lat !== undefined && lng !== undefined) {
+      placeMarker(lng, lat)
+    }
 
-      mapRef.current = map
-      requestAnimationFrame(() => map.invalidateSize())
+    map.on('click', (e) => {
+      placeMarker(e.lngLat.lng, e.lngLat.lat)
+      onChangeRef.current(e.lngLat.lat, e.lngLat.lng)
+    })
 
-      if (mapHandleRef) {
-        mapHandleRef.current = {
-          locate: () => {
-            if (!navigator.geolocation) return
-            navigator.geolocation.getCurrentPosition((position) => {
-              const { latitude, longitude } = position.coords
-              map.setView([latitude, longitude], 15)
-              if (markerRef.current) {
-                markerRef.current.setLatLng([latitude, longitude])
-              } else {
-                markerRef.current = L.marker([latitude, longitude], {
-                  icon: defaultIcon,
-                }).addTo(map)
-              }
-              onChange(latitude, longitude)
-            })
-          },
-        }
+    mapRef.current = map
+    requestAnimationFrame(() => map.resize())
+
+    if (mapHandleRef) {
+      mapHandleRef.current = {
+        locate: () => {
+          if (!navigator.geolocation) return
+          navigator.geolocation.getCurrentPosition((position) => {
+            const { latitude, longitude } = position.coords
+            map.flyTo({ center: [longitude, latitude], zoom: 15 })
+            placeMarker(longitude, latitude)
+            onChangeRef.current(latitude, longitude)
+          })
+        },
       }
-    })()
+    }
 
     return () => {
-      cancelled = true
-      mapRef.current?.remove()
+      map.remove()
       mapRef.current = null
       markerRef.current = null
       if (mapHandleRef) mapHandleRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-lg border bg-muted text-center text-sm text-muted-foreground">
+        Карта недоступна: не задан VITE_MAPBOX_TOKEN
+      </div>
+    )
+  }
 
   return (
     <div

@@ -33,6 +33,11 @@ npm run dev
 репозитория — он не закоммичен и не должен попасть в git. Перенесите значения из
 него в свой `.env.local` после клонирования.
 
+Карты (`memorial-sites`) рендерятся через Mapbox GL JS и **требуют**
+`VITE_MAPBOX_TOKEN` — без него компонент карты показывает заглушку с
+сообщением, а не пустой экран. Токен уже есть в
+`SECRETS_DO_NOT_COMMIT_memorial-sites.txt`.
+
 ### memorial-admin
 
 `memorial-admin/.env.local.example` содержит только `VITE_DATA_CONVEX_URL` —
