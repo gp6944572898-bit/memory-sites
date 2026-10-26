@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import type * as LeafletTypes from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
+import { addBaseTileLayer } from '@/lib/map-tiles'
+
 const DEFAULT_CENTER: [number, number] = [55.7558, 37.6173] // Moscow
 
 export type BurialMapHandle = {
@@ -50,15 +52,10 @@ export function BurialMapPicker({
         center,
         lat !== undefined ? 15 : 4,
       )
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(map)
-      // Leaflet's default attribution prefix links to leafletjs.com and, since
-      // 1.9, prepends a Ukrainian flag as the maintainers' show of support.
-      // Keep the OSM data attribution above (required by its license); drop
-      // only this library-credit prefix and its flag.
-      map.attributionControl.setPrefix(false)
+      // Единая логика выбора тайлов: Mapbox, если задан VITE_MAPBOX_TOKEN,
+      // иначе запасной вариант — OpenStreetMap. Также убирает префикс
+      // атрибуции Leaflet, оставляя только обязательную атрибуцию данных.
+      addBaseTileLayer(L, map)
 
       if (lat !== undefined && lng !== undefined) {
         markerRef.current = L.marker([lat, lng], { icon: defaultIcon }).addTo(map)

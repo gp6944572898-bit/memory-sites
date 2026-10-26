@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import 'leaflet/dist/leaflet.css'
 
+import { addBaseTileLayer } from '@/lib/map-tiles'
+
 export function StaticMap({ lat, lng }: { lat: number; lng: number }) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -30,14 +32,10 @@ export function StaticMap({ lat, lng }: { lat: number; lng: number }) {
         doubleClickZoom: false,
         zoomControl: false,
       }).setView([lat, lng], 14)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(map)
-      // See burial-map-picker.tsx: drops Leaflet's default credit prefix
-      // (and the Ukrainian-flag emoji it includes), keeping only the OSM
-      // data attribution required by its license.
-      map.attributionControl.setPrefix(false)
+      // Единая логика выбора тайлов: Mapbox, если задан VITE_MAPBOX_TOKEN,
+      // иначе запасной вариант — OpenStreetMap. Также убирает префикс
+      // атрибуции Leaflet, оставляя только обязательную атрибуцию данных.
+      addBaseTileLayer(L, map)
       L.marker([lat, lng], { icon }).addTo(map)
     })()
 
