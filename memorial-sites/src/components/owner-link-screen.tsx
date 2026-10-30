@@ -6,6 +6,8 @@ import { Check, Copy } from 'lucide-react'
 import { api } from '@/../convex/_generated/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { QrImage, downloadQrPng } from '@/components/qr-image'
+import { SubdomainField } from '@/components/subdomain-field'
 
 // Shown once, right after a page is created. The owner link is the ONLY way
 // back into managing the page — there is no sign-in — so this screen exists
@@ -26,6 +28,17 @@ export function OwnerLinkScreen({
 
   const ownerUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/owner/${ownerToken}` : `/owner/${ownerToken}`
+
+  const siteUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/m/${slug}` : `/m/${slug}`
+  const [siteCopied, setSiteCopied] = useState(false)
+
+  function copySiteLink() {
+    void navigator.clipboard.writeText(siteUrl).then(() => {
+      setSiteCopied(true)
+      setTimeout(() => setSiteCopied(false), 2000)
+    })
+  }
 
   function copyLink() {
     void navigator.clipboard.writeText(ownerUrl).then(() => {
@@ -72,6 +85,24 @@ export function OwnerLinkScreen({
         </div>
         {copied && <p className="text-xs text-muted-foreground">Ссылка скопирована</p>}
       </div>
+
+      <div className="w-full max-w-md space-y-3 rounded-lg border p-4">
+        <p className="text-sm font-medium text-foreground">Ссылка на страницу памяти и QR-код</p>
+        <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-3">
+          <code className="flex-1 overflow-x-auto whitespace-nowrap text-left text-xs text-foreground">
+            {siteUrl}
+          </code>
+          <Button type="button" size="icon" variant="outline" onClick={copySiteLink} aria-label="Скопировать ссылку на страницу">
+            {siteCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </Button>
+        </div>
+        <QrImage text={siteUrl} className="mx-auto w-48 rounded-md bg-white" />
+        <Button type="button" variant="outline" onClick={() => void downloadQrPng(siteUrl, slug)}>
+          Скачать QR-код
+        </Button>
+      </div>
+
+      <SubdomainField ownerToken={ownerToken} />
 
       <div className="w-full max-w-md space-y-2 rounded-lg border p-4 text-left">
         <p className="text-sm font-medium text-foreground">

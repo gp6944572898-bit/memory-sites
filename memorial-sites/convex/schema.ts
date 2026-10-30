@@ -48,6 +48,9 @@ export default defineSchema({
     // used for sign-in and not yet wired to actually send mail (no outbound
     // email sender is configured beyond the one-time sign-in code).
     ownerEmail: v.optional(v.string()),
+    // Свой поддомен страницы (хранится строчными, уникален). Задаётся
+    // владельцем через subdomain.claim.
+    subdomain: v.optional(v.string()),
     requireApproval: v.boolean(),
     // Owner setting: send every new guestbook message to platform moderation
     // first (before the owner's own review, if that is on too).
@@ -55,7 +58,8 @@ export default defineSchema({
   })
     .index("by_slug", ["slug"])
     .index("by_owner", ["ownerId"])
-    .index("by_owner_token", ["ownerToken"]),
+    .index("by_owner_token", ["ownerToken"])
+    .index("by_subdomain", ["subdomain"]),
 
   // Admin-panel access. A user without a row here has no admin rights.
   adminRoles: defineTable({

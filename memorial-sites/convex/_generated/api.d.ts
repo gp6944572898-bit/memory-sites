@@ -38,6 +38,8 @@ import type * as pages from "../pages.js";
 import type * as permissions from "../permissions.js";
 import type * as qr from "../qr.js";
 import type * as qrRules from "../qrRules.js";
+import type * as subdomain from "../subdomain.js";
+import type * as subdomainRules from "../subdomainRules.js";
 
 import type {
   ApiFromModules,
@@ -76,6 +78,8 @@ declare const fullApi: ApiFromModules<{
   permissions: typeof permissions;
   qr: typeof qr;
   qrRules: typeof qrRules;
+  subdomain: typeof subdomain;
+  subdomainRules: typeof subdomainRules;
 }>;
 
 /**
