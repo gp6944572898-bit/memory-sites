@@ -4,7 +4,6 @@ import {
   Scripts,
   createRootRoute,
 } from '@tanstack/react-router'
-import { MacalyBridge } from '@macaly/bridge'
 
 import DataProvider from '@/components/data-provider'
 
@@ -60,12 +59,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <MacalyBridge>
-        <body>
-          {children}
-          <Scripts />
-        </body>
-      </MacalyBridge>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   )
 }
